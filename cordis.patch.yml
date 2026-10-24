@@ -1,0 +1,5 @@
+# bundle patch：把画板插件插进 web profile 的插件名册。
+# 通过 `dsh plugin --profile web add link:<本目录>` 安装时由插件管理器自动应用。
+- insert:
+    - id: dsh-sketchpad
+      name: dsh-sketchpad
