@@ -35,7 +35,7 @@ dsh plugin --profile web add dsh-sketchpad
 
 浮窗的 **插入** 会冻结画面、清空画板并关闭窗口；侧栏的 **插入到输入框** 保留标签页，方便接着画下一张。
 
-<img src="docs/images/sidebar.png" alt="侧栏画板：手画的 x1 到 x5 关系图" width="380">
+<img src="docs/images/sidebar.png" alt="侧栏画板：手画的有向图" width="380">
 
 <img src="docs/images/attachment.png" alt="输入框里的画板图片附件" width="100%">
 

@@ -35,7 +35,7 @@ Restart `dsh web` (or refresh after a live install).
 
 Floating **Insert** freezes the drawing, clears the board and closes the window. The sidebar's **Insert to composer** keeps the tab open for the next one.
 
-<img src="docs/images/sidebar.png" alt="The sidebar board with a hand-drawn graph" width="380">
+<img src="docs/images/sidebar.png" alt="The sidebar board with a hand-drawn directed graph" width="380">
 
 <img src="docs/images/attachment.png" alt="A sketch attached to the composer" width="100%">
 
