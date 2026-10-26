@@ -4,17 +4,21 @@ English | [中文](README.zh.md)
 
 A drawing board for [DeepSeek Harness](https://github.com/deepseek-ai/dsh). Handwrite a formula, sketch a diagram or jot a note, then attach the picture to your message.
 
-<img src="docs/images/float.png" alt="The floating sketchpad with a handwritten integral" width="100%">
+<img src="docs/images/board-light.png" alt="The floating sketchpad: a hand-drawn two-box flow diagram, toolbar with pen, line, arrow, eraser, widths, colours, clear, undo, redo and Done" width="100%">
 
 ## Features
 
-- **Floating board** — pencil button at the left of the composer; 1600×1000 landscape. `Esc`, the `×`, a backdrop click or a double-click closes it, and closing attaches the drawing.
+- **Entry points** — the **Sketchpad** row in the composer's `+` menu (also `/sketchpad`), and the right-sidebar tab.
+- **Floating board** — 1600×1000 landscape. `Esc`, the `×`, a backdrop click or a double-click closes it;
+  **closing only closes** — press **Done** to put the drawing in the message.
 - **Sidebar board** — a portrait 1000×1333 right-sidebar tab with its own strokes and attachment.
-- **Only explicit saves** — nothing is encoded while drawing; the PNG is made only when you close the floating board or press **Insert**.
+- **Only explicit saves** — nothing is encoded while drawing; the PNG is made only when you press **Done**.
 - **Cropped export** — cut to the ink bounding box plus 26 px; small sketches are upscaled up to 2.5× (about 900 px on the long side).
 - **Tools** — pen, line, arrow, eraser with a round cursor; widths 4 / 7 / 12 px; black, red and blue; `Shift` snaps to 0°/45°/90°.
 - **Undo, immediate clear, one pointer** — a second finger cannot join the current stroke.
-- **Shortcuts** — `B` `L` `A` `E`, `[` `]`, `Ctrl/Cmd+Z`, `Esc`.
+- **Shortcuts** — `B` `L` `A` `E` tools, `1` `2` `3` colours, `[` `]` width, `Ctrl/Cmd+Z` undo, `Ctrl/Cmd+Shift+Z` redo, `Enter` done, `Esc` closes the floating board.
+- **Chinese and English** — UI copy follows the host language (reads `<html lang>`).
+- **A fresh canvas per open** — the previous sketch is not lost: it sits one **undo** away, and redo empties the board again.
 
 ## Install
 
@@ -28,16 +32,18 @@ Restart `dsh web` (or refresh after a live install).
 
 ## Usage
 
-1. Click the pencil button at the left of the composer (or open the **画板** sidebar tab).
+<img src="docs/images/board-menu.png" alt="The composer + menu with the Sketchpad entry" width="100%">
+
+1. Open **Sketchpad** from the composer's `+` menu (or `/sketchpad`, or the **drawing board** sidebar tab).
 2. Draw.
-3. Close the floating board — the drawing is attached — or press **Insert**.
+3. Press **Done** (or hit Enter) to attach the drawing; closing with the `×` leaves the composer alone.
 4. Send.
 
-Floating **Insert** freezes the drawing, clears the board and closes the window. The sidebar's **Insert to composer** keeps the tab open for the next one.
+Floating **Done** freezes the drawing, clears the board and closes the window; the sidebar's **Done** keeps the tab open for the next one.
 
-<img src="docs/images/sidebar.png" alt="The sidebar board with a hand-drawn directed graph" width="380">
+<img src="docs/images/board-attachment.png" alt="A sketch attached to the composer" width="100%">
 
-<img src="docs/images/attachment.png" alt="A sketch attached to the composer" width="100%">
+<img src="docs/images/board-dark.png" alt="The same floating board in dark mode" width="100%">
 
 ## Permissions and data
 

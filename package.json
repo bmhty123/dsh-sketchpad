@@ -50,12 +50,12 @@
       "platform": "web",
       "external": [
         "react",
-        "react-dom",
-        "@deepseek-ai/dsh-client-ui-primitives"
+        "react-dom"
       ]
     }
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.0"
-  }
+  },
+  "icon": "./assets/icon.svg"
 }
