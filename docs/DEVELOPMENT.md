@@ -91,16 +91,20 @@ status/message 仅用于错误提示
   3. 拖动阈值：触摸起笔只攒点不落墨，位移超过 5 CSS 像素才一次性画出攒下的路径；没到阈值就抬笔不提交任何笔画，轻点和掌压都不留点；
   4. 接手：手掌先压下来时会有一条没出墨的触摸笔画，此时笔或另一根手指落下会作废它并接手（`abandonDraft` 用已提交笔画重绘画布），所以手掌不会把手指挡在外面。
 - **pointercancel**：系统打断（来电、手势切换）按作废处理，不把半截笔画当画完提交。
-- **橡皮光标**：一个跟随指针的 SVG 圆，直径 = `STROKE_WIDTH[weight] * widthScale * ERASER_SCALE`（默认 4 倍笔宽）；用 `vector-effect="non-scaling-stroke"` 保证描边不随缩放变粗。
+- **删除工具（E）**：不再往画布上涂白，而是整条删除。按下/移动时用 `findStrokeIndex` 做命中测试：先过 `strokeBox`（按引用缓存的包围盒），再算点到折线的最短距离 ≤ `deleteRadius() + 笔画宽/2`，从后往前找，命中画得最晚的那条。删除后只重画这条笔画的包围盒（`repaintRegion`：裁切 + 补白底 + 重画相交笔画），不整块重绘，所以一路划过去删多笔也不会随笔画总数变慢。
+- **撤销**：`historyRef` 存操作而不是快照，`{type:"add"}` 或 `{type:"delete", before}`（`before` 是删除前的整份笔画数组，只存引用）。一次删除手势里删掉的笔画合成一条历史，撤销时整块重绘一次。历史上限 40；发送/插入/清空会清空历史，免得撤销把已经发出去的画面拉回来。
+- **双击/双触撤销**：`lastTapRef` 记上一次轻点（≤400 ms、≤26 CSS 像素），在删除工具或触摸时成立（这两种情况下轻点本来不落墨，不会和画东西抢）。第二次按下时置 `undoOnTapRef`，抬起时走 `undo()`，所以“删错了再点一下”就能退回来。
+- **删除光标**：一个跟随指针的 SVG 圆，直径 = `STROKE_WIDTH[weight] * widthScale * ERASER_SCALE`（默认 4 倍笔宽），也就是命中直径；用 `vector-effect="non-scaling-stroke"` 保证描边不随缩放变粗。
 - **清空按钮**：不是图标，是 `.dsh-sketchpad-clear` 胶囊；`data-armed` 由 `hasInk` 控制，CSS 在 armed 时改红色描边和文字，底色保持相同的灰色。
 - **状态提示**：只在空白画板或出错时渲染；文本只有 `空白画板 · 按住鼠标拖动书写` 和错误信息两种。
 
 ## 性能取舍
 
-- 绘制、撤销、清空、换色、直线预览、橡皮圆全部在浏览器本地完成，不经过 Host 往返。
+- 绘制、撤销、清空、换色、直线预览、删除光标全部在浏览器本地完成，不经过 Host 往返。
 - 抬笔不编码、不碰附件：PNG 编码和 `createDrafts`/`addAttachments` 只在关闭/插入时各做一次。
 - 自由笔画一次 `pointermove` 只 stroke 一条路径，合并 `getCoalescedEvents` 的同帧采样点；直线/箭头画在独立 overlay canvas 上。
-- 起笔时缓存画布矩形，`pointermove` 不再反复触发 `getBoundingClientRect`；橡皮圆只在橡皮模式下更新。
+- 起笔时缓存画布矩形，`pointermove` 不再反复触发 `getBoundingClientRect`；删除光标只在删除模式下更新。
+- 删除只重绘被删笔画的包围盒（`repaintRegion`），撤销/清空才整块重绘。
 - **提交不重绘整块画布**：抬笔时笔画已经在画布上，`commitStroke` 只置 `skipRepaintRef`，`[state.strokes]` 的 `useLayoutEffect` 跳过 `paintBoard`；只有撤销/清空才整块重绘（它们自己也已经画过一遍，置同样的标记避免重绘两次）。改之前每提交一笔都要重绘全部笔画，代价随笔画数线性增长。
 - 重绘用 `useLayoutEffect` 而不是 `useEffect`：首帧在浏览器绘制前就把白底铺上，避免 `alpha:false` 的画布闪一帧黑。
 - 主画布用 `getContext("2d", { alpha: false, desynchronized: true })`：不透明画布在 Chromium 上能走低延迟合成路径，笔尖到像素的延迟更小；Safari/Firefox 忽略这个选项，行为不变。导出仍然靠 `drawImage` 读回，实测可读（`test` 之外用 Chromium 量过）。
@@ -143,7 +147,7 @@ npm install
 npm test
 ```
 
-`test/palm-rejection.test.mjs` 把真实 bundle 加载进 jsdom，用带 `pointerType` / `width` / `height` 的合成 PointerEvent 覆盖防误触：手掌大面积接触、轻点、低于拖动阈值、笔按下时触摸、手指画到一半手掌压上来、手掌先到由手指接手、45 px 的手指能画而 88 px 的手掌被丢弃、鼠标单击仍然落点。jsdom 没有布局和 canvas，测试里给画布固定 1000×1333 的矩形、用 ops 记录器替代 2D 上下文，所以断言看的是画布操作序列而不是像素。
+`test/palm-rejection.test.mjs` 把真实 bundle 加载进 jsdom，用带 `pointerType` / `width` / `height` 的合成 PointerEvent 覆盖防误触和删除/撤销：手掌大面积接触、轻点、低于拖动阈值、笔按下时触摸、手指画到一半手掌压上来、手掌先到由手指接手、45 px 的手指能画而 88 px 的手掌被丢弃、鼠标单击仍然落点、点一下删掉整笔、撤销放回、再点一下撤销这次删除、拖着一路删多笔后一次撤销全部放回。jsdom 没有布局和 canvas，测试里给画布固定 1000×1333 的矩形、用 ops 记录器替代 2D 上下文（要支持 `clip`），所以断言看的是画布操作序列而不是像素。
 
 ## 卸载
 

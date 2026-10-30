@@ -64,7 +64,7 @@ function makeRecorder(canvas) {
 	for (const name of [
 		"fillRect", "clearRect", "beginPath", "moveTo", "lineTo", "stroke", "arc", "fill",
 		"closePath", "save", "restore", "setTransform", "translate", "scale", "drawImage",
-		"quadraticCurveTo", "bezierCurveTo", "rect", "ellipse", "strokeRect", "setLineDash",
+		"quadraticCurveTo", "bezierCurveTo", "rect", "ellipse", "strokeRect", "setLineDash", "clip",
 	]) recorder[name] = draw(name);
 	recorder.canvas = canvas;
 	recorders.set(canvas, recorder);
@@ -169,15 +169,30 @@ const reset = () => {
 };
 const inkOps = () => rec.ops.filter((op) => ["stroke", "fill", "lineTo", "arc"].includes(op[0]));
 
-const undoButton = () => document.querySelector('[title^="撤销上一笔"]');
+const undoButton = () => document.querySelector('[title^="撤销"]');
 const clearButton = () => document.querySelector(".dsh-sketchpad-clear");
 const clearBoard = () => {
 	const button = clearButton();
 	if (button !== null && button.disabled !== true) act(() => button.click());
 };
+const selectTool = (prefix) => {
+	const button = document.querySelector(`[title^="${prefix}"]`);
+	act(() => button.click());
+};
+let nextPointerId = 700;
+/** 画一条三点直线笔画（鼠标，直接落墨）。 */
+const drawPenStroke = (x1, y1, x2, y2) => {
+	const pointerId = nextPointerId++;
+	dispatch("pointerdown", { pointerId, pointerType: "mouse", width: 1, height: 1, clientX: x1, clientY: y1 });
+	dispatch("pointermove", { pointerId, pointerType: "mouse", width: 1, height: 1, clientX: (x1 + x2) / 2, clientY: (y1 + y2) / 2 });
+	dispatch("pointermove", { pointerId, pointerType: "mouse", width: 1, height: 1, clientX: x2, clientY: y2 });
+	dispatch("pointerup", { pointerId, pointerType: "mouse", width: 1, height: 1, clientX: x2, clientY: y2 });
+};
 
 const results = [];
 const check = (name, ok, detail) => results.push({ name, ok, detail: detail ?? "" });
+/** 等过双击窗口，避免两段互不相干的点击被判成双击。 */
+const settle = () => new Promise((resolve) => setTimeout(resolve, 450));
 
 /* 1. 手掌（大面积）按下并移动：一个墨点都不能有 */
 reset();
@@ -254,6 +269,47 @@ dispatch("pointerdown", { pointerId: 24, pointerType: "touch", width: 88, height
 dispatch("pointermove", { pointerId: 24, pointerType: "touch", width: 88, height: 80, clientX: 320, clientY: 300 });
 dispatch("pointerup", { pointerId: 24, pointerType: "touch", width: 88, height: 80, clientX: 320, clientY: 300 });
 check("45 px finger draws, 88 px palm is dropped", bigFingerWorked && inkOps().length === 0, JSON.stringify(rec.ops.map((o) => o[0])));
+
+/* 9. 删除工具：点一下整笔消失，撤销能把它放回来 */
+clearBoard();
+selectTool("水笔");
+drawPenStroke(200, 900, 400, 900);
+check("delete tool: stroke is on the board", clearButton()?.disabled === false);
+selectTool("删除笔画");
+reset();
+dispatch("pointerdown", { pointerId: 900, pointerType: "mouse", width: 1, height: 1, clientX: 300, clientY: 900 });
+dispatch("pointerup", { pointerId: 900, pointerType: "mouse", width: 1, height: 1, clientX: 300, clientY: 900 });
+check("delete tool removes the whole stroke", clearButton()?.disabled === true);
+await settle();
+
+/* 10. 双击撤销：删掉后再点一下同一处，把删除撤回来 */
+act(() => undoButton().click());
+check("undo restores the deleted stroke", clearButton()?.disabled === false);
+dispatch("pointerdown", { pointerId: 901, pointerType: "mouse", width: 1, height: 1, clientX: 300, clientY: 900 });
+dispatch("pointerup", { pointerId: 901, pointerType: "mouse", width: 1, height: 1, clientX: 300, clientY: 900 });
+const emptyAfterTap = clearButton()?.disabled === true;
+dispatch("pointerdown", { pointerId: 902, pointerType: "mouse", width: 1, height: 1, clientX: 300, clientY: 900 });
+dispatch("pointerup", { pointerId: 902, pointerType: "mouse", width: 1, height: 1, clientX: 300, clientY: 900 });
+check("second tap undoes the deletion", emptyAfterTap && clearButton()?.disabled === false);
+
+/* 11. 拖着一路删：一个手势删多笔，一次撤销全部放回 */
+clearBoard();
+selectTool("水笔");
+drawPenStroke(150, 700, 450, 700);
+drawPenStroke(150, 760, 450, 760);
+drawPenStroke(150, 820, 450, 820);
+const threeStrokes = clearButton()?.disabled === false;
+selectTool("删除笔画");
+reset();
+dispatch("pointerdown", { pointerId: 910, pointerType: "mouse", width: 1, height: 1, clientX: 200, clientY: 700 });
+dispatch("pointermove", { pointerId: 910, pointerType: "mouse", width: 1, height: 1, clientX: 200, clientY: 760 });
+dispatch("pointermove", { pointerId: 910, pointerType: "mouse", width: 1, height: 1, clientX: 200, clientY: 820 });
+dispatch("pointerup", { pointerId: 910, pointerType: "mouse", width: 1, height: 1, clientX: 200, clientY: 820 });
+const allDeleted = clearButton()?.disabled === true;
+reset();
+act(() => undoButton().click());
+const restoredStrokes = rec.ops.filter((op) => op[0] === "stroke").length;
+check("one undo restores a multi-stroke delete", threeStrokes && allDeleted && restoredStrokes >= 3, `restored=${restoredStrokes}`);
 
 for (const result of results) {
 	console.log((result.ok ? "PASS " : "FAIL ") + result.name + (result.ok ? "" : " :: " + result.detail));

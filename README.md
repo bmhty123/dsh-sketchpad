@@ -12,8 +12,8 @@ A drawing board for [DeepSeek Harness](https://github.com/deepseek-ai/dsh). Hand
 - **Sidebar board** — a portrait 1000×1333 right-sidebar tab with its own strokes and attachment.
 - **Only explicit saves** — nothing is encoded while drawing; the PNG is made only when you close the floating board or press **Insert**.
 - **Cropped export** — cut to the ink bounding box plus 26 px; small sketches are upscaled up to 2.5× (about 900 px on the long side).
-- **Tools** — pen, line, arrow, eraser with a round cursor; widths 4 / 7 / 12 px; black, red and blue; `Shift` snaps to 0°/45°/90°.
-- **Undo, immediate clear, one pointer** — a second finger cannot join the current stroke.
+- **Tools** — pen, line, arrow, and a stroke deleter: tap a stroke or drag across several to remove them whole; widths 4 / 7 / 12 px; black, red and blue; `Shift` snaps to 0°/45°/90°.
+- **Undo (40 steps), double-click undo, immediate clear, one pointer** — `Ctrl/Cmd+Z`, the undo button, or a double-click/double-tap on the board; a second finger cannot join the current stroke.
 - **Touchscreen guards** — while the pen is down touch is ignored; contacts far larger than your finger (learned per device, 55 px floor) are treated as a palm; a touch must travel 5 px before it inks. A resting hand leaves no dots, and a finger still draws.
 - **Shortcuts** — `B` `L` `A` `E`, `[` `]`, `Ctrl/Cmd+Z`, `Esc`.
 
