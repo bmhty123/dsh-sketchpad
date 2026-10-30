@@ -8,9 +8,9 @@ A drawing board for [DeepSeek Harness](https://github.com/deepseek-ai/dsh). Hand
 
 ## Features
 
-- **Entry points** — the composer's `+` menu (**Sketchpad**, also `/sketchpad`), the pencil button at the left of the composer, and the right-sidebar tab.
+- **Entry points** — the composer's `+` menu (**Sketchpad**, also `/sketchpad`) and the right-sidebar tab.
 - **Floating board** — 1600×1000 landscape. `Esc`, the `×`, a backdrop click or a double-click closes it; closing only closes, the drawing is attached when you press **Done**.
-- **Fullscreen** — the toolbar button (or `F`) expands the floating board to the whole window; the choice is remembered for the next time.
+- **Fullscreen** — the toolbar button (or `F`) expands the floating board to the whole window, and the sidebar board's button pops that board out fullscreen; the choice is remembered for the next time.
 - **Sidebar board** — a portrait 1000×1333 right-sidebar tab with its own strokes and attachment.
 - **Only explicit saves** — nothing is encoded while drawing; the PNG is made only when you press **Done**.
 - **Cropped export** — cut to the ink bounding box plus 26 px; small sketches are upscaled up to 2.5× (about 900 px on the long side).
@@ -32,7 +32,7 @@ Restart `dsh web` (or refresh after a live install).
 
 ## Usage
 
-1. Open **Sketchpad** from the composer's `+` menu (or `/sketchpad`, the pencil button, or the **画板** sidebar tab).
+1. Open **Sketchpad** from the composer's `+` menu (or `/sketchpad`, or the **画板** sidebar tab).
 2. Draw.
 3. Press **Done** to attach the drawing (closing the board only closes it).
 4. Send.
