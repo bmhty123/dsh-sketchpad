@@ -14,7 +14,7 @@ A drawing board for [DeepSeek Harness](https://github.com/deepseek-ai/dsh). Hand
 - **Cropped export** — cut to the ink bounding box plus 26 px; small sketches are upscaled up to 2.5× (about 900 px on the long side).
 - **Tools** — pen, line, arrow, eraser with a round cursor; widths 4 / 7 / 12 px; black, red and blue; `Shift` snaps to 0°/45°/90°.
 - **Undo, immediate clear, one pointer** — a second finger cannot join the current stroke.
-- **Touchscreen guards** — the pen wins over touch, palm-sized contacts are ignored, a second finger cancels the stroke, and a touch must travel 5 px before it inks, so a resting hand leaves no dots.
+- **Touchscreen guards** — while the pen is down touch is ignored; contacts far larger than your finger (learned per device, 55 px floor) are treated as a palm; a touch must travel 5 px before it inks. A resting hand leaves no dots, and a finger still draws.
 - **Shortcuts** — `B` `L` `A` `E`, `[` `]`, `Ctrl/Cmd+Z`, `Esc`.
 
 ## Install
@@ -46,7 +46,7 @@ No network requests and no message access. The plugin uses the host's draft-atta
 
 ## Limits
 
-No pressure sensitivity, and palm rejection is heuristic — stylus priority, contact size, drag threshold — so a large fingertip can be ignored and a palm that reports a small contact can still slip through. The two boards are independent, sizes are fixed, clear cannot be undone, and a page refresh clears the boards.
+No pressure sensitivity, and palm rejection is heuristic — pen priority, a per-device finger-size baseline, and a drag threshold — so a palm that reports a finger-sized contact can still slip through. The two boards are independent, sizes are fixed, clear cannot be undone, and a page refresh clears the boards.
 
 ## Development
 

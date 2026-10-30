@@ -2,10 +2,10 @@
 
 ## 0.1.1 — touchscreen palm rejection
 
-- Palm rejection on touch screens, without a mode switch: while a stylus is hovering or drawing, touch input is ignored (and for 1.5 s after the pen leaves).
-- Contacts larger than 34 CSS px (palm-sized) are dropped before they can start a stroke.
-- A second finger arriving mid-stroke cancels the stroke instead of mixing both samples into one line.
+- Palm rejection on touch screens, without a mode switch: while the pen is down, touch input is ignored (and for 0.3 s after it lifts).
+- Palm-sized contacts are dropped, using a threshold that adapts to the finger size this device reports (`max(55 px, median × 1.5)`), so a large finger is not mistaken for a palm.
 - Touch input must travel 5 px before any ink appears, so resting a hand or a light tap leaves no dot; a stylus or mouse tap still makes a dot.
+- A finger landing on a resting palm takes the stroke over, so the palm never blocks drawing.
 - `pointercancel` now discards the unfinished stroke instead of committing it.
 
 ## 0.1.0 — first public release

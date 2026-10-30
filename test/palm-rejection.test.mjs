@@ -194,22 +194,24 @@ dispatch("pointermove", { pointerId: 3, pointerType: "touch", width: 12, height:
 check("drag past slop inks", inkOps().length > 0, JSON.stringify(rec.ops.slice(0, 6)));
 dispatch("pointerup", { pointerId: 3, pointerType: "touch", width: 12, height: 12, clientX: 360, clientY: 360 });
 
-/* 4. 笔悬停后手掌压屏：不画 */
+/* 4. 笔按着时触摸一律不画（只有笔的落点） */
 reset();
-dispatch("pointermove", { pointerId: 9, pointerType: "pen", width: 1, height: 1, clientX: 500, clientY: 500 });
+dispatch("pointerdown", { pointerId: 9, pointerType: "pen", width: 1, height: 1, clientX: 500, clientY: 500 });
+const opsAfterPenDown = rec.ops.map((op) => op[0]);
 dispatch("pointerdown", { pointerId: 4, pointerType: "touch", width: 12, height: 12, clientX: 300, clientY: 400 });
 dispatch("pointermove", { pointerId: 4, pointerType: "touch", width: 12, height: 12, clientX: 420, clientY: 480 });
 dispatch("pointerup", { pointerId: 4, pointerType: "touch", width: 12, height: 12, clientX: 420, clientY: 480 });
-check("pen presence suppresses touch", inkOps().length === 0);
+check("pen down suppresses touch", rec.ops.length === opsAfterPenDown.length, JSON.stringify(rec.ops.map((o) => o[0])));
+dispatch("pointerup", { pointerId: 9, pointerType: "pen", width: 1, height: 1, clientX: 500, clientY: 500 });
 
 /* 5. 鼠标单击仍然落一个点（没有被防误触误伤） */
+advance(1000);
 reset();
 dispatch("pointerdown", { pointerId: 5, pointerType: "mouse", width: 1, height: 1, clientX: 600, clientY: 600 });
 dispatch("pointerup", { pointerId: 5, pointerType: "mouse", width: 1, height: 1, clientX: 600, clientY: 600 });
 check("mouse tap still draws a dot", rec.ops.some((op) => op[0] === "arc" || op[0] === "fill"), JSON.stringify(rec.ops.map((o) => o[0])));
 
 /* 6. 手指画到一半手掌压上来：手指笔画不受影响，抬起后正常提交 */
-advance(2000);
 reset();
 dispatch("pointerdown", { pointerId: 6, pointerType: "touch", width: 12, height: 12, clientX: 100, clientY: 700 });
 dispatch("pointermove", { pointerId: 6, pointerType: "touch", width: 12, height: 12, clientX: 200, clientY: 760 });
@@ -221,16 +223,29 @@ dispatch("pointerup", { pointerId: 7, pointerType: "touch", width: 70, height: 6
 const committed = rec.ops.filter((op) => op[0] === "fillRect");
 check("palm landing mid-stroke keeps the finger stroke", inkBeforePalm > 0 && committed.length > 0, JSON.stringify(committed));
 
-/* 7. 两根手指同时按：整笔作废，画布回到已提交内容 */
+/* 7. 手掌先压下来（没出墨），手指再落：手指接手，手掌那条不留痕 */
 reset();
-dispatch("pointerdown", { pointerId: 8, pointerType: "touch", width: 12, height: 12, clientX: 400, clientY: 1000 });
-dispatch("pointermove", { pointerId: 8, pointerType: "touch", width: 12, height: 12, clientX: 500, clientY: 1100 });
-dispatch("pointerdown", { pointerId: 10, pointerType: "touch", width: 14, height: 14, clientX: 700, clientY: 1200 });
-dispatch("pointerup", { pointerId: 8, pointerType: "touch", width: 12, height: 12, clientX: 500, clientY: 1100 });
-dispatch("pointerup", { pointerId: 10, pointerType: "touch", width: 14, height: 14, clientX: 700, clientY: 1200 });
-const afterAbort = rec.ops.map((op) => op[0]);
-/* 作废只会有一次「按已提交笔画重绘」的 fillRect；真提交了，状态变化会再重绘一次。 */
-check("second finger cancels the stroke", afterAbort.filter((name) => name === "fillRect").length === 1, JSON.stringify(afterAbort));
+dispatch("pointerdown", { pointerId: 12, pointerType: "touch", width: 70, height: 60, clientX: 400, clientY: 1000 });
+check("palm first leaves no ink", inkOps().length === 0, JSON.stringify(rec.ops.map((o) => o[0])));
+dispatch("pointerdown", { pointerId: 13, pointerType: "touch", width: 12, height: 12, clientX: 500, clientY: 1050 });
+dispatch("pointermove", { pointerId: 13, pointerType: "touch", width: 12, height: 12, clientX: 560, clientY: 1110 });
+check("finger takes over a resting palm", inkOps().length > 0, JSON.stringify(rec.ops.map((o) => o[0])));
+dispatch("pointerup", { pointerId: 13, pointerType: "touch", width: 12, height: 12, clientX: 560, clientY: 1110 });
+dispatch("pointerup", { pointerId: 12, pointerType: "touch", width: 70, height: 60, clientX: 400, clientY: 1000 });
+
+/* 8. 攒够手指样本后，明显更大的接触面仍然按手掌丢掉 */
+reset();
+for (const [index, size] of [[21, 45], [22, 45], [23, 45]]) {
+	dispatch("pointerdown", { pointerId: index, pointerType: "touch", width: size, height: size, clientX: 300 + index, clientY: 600 });
+	dispatch("pointermove", { pointerId: index, pointerType: "touch", width: size, height: size, clientX: 360 + index, clientY: 660 });
+	dispatch("pointerup", { pointerId: index, pointerType: "touch", width: size, height: size, clientX: 360 + index, clientY: 660 });
+}
+const bigFingerWorked = rec.ops.length > 0;
+reset();
+dispatch("pointerdown", { pointerId: 24, pointerType: "touch", width: 88, height: 80, clientX: 200, clientY: 200 });
+dispatch("pointermove", { pointerId: 24, pointerType: "touch", width: 88, height: 80, clientX: 320, clientY: 300 });
+dispatch("pointerup", { pointerId: 24, pointerType: "touch", width: 88, height: 80, clientX: 320, clientY: 300 });
+check("45 px finger draws, 88 px palm is dropped", bigFingerWorked && inkOps().length === 0, JSON.stringify(rec.ops.map((o) => o[0])));
 
 for (const result of results) {
 	console.log((result.ok ? "PASS " : "FAIL ") + result.name + (result.ok ? "" : " :: " + result.detail));
