@@ -11,6 +11,8 @@
 - The eraser is now a stroke deleter: tap a stroke or drag across several to remove them whole, with a hit area that matches the round cursor. Deleting repaints only the removed stroke's bounding box, so dragging across a busy board stays cheap.
 - Undo keeps the last 40 steps as before/after snapshots, so strokes, deletions and clears are all undoable; redo puts them back (`Ctrl/Cmd+Shift+Z`). A two-finger tap on the board still undoes.
 - New entry points: a **Sketchpad** row in the composer's `+` menu and a `/sketchpad` command. UI copy follows the host language (Chinese and English).
+- Closing the floating board only closes it; the drawing is attached when you press **Done**.
+- A fullscreen toggle next to undo/redo (or `F`) expands the floating board to the whole window, and the choice is remembered for the next open.
 - Clearing the board is now undoable, and the toolbar gained a redo button.
 - The `+` menu entry, bilingual copy, redo and the layout fixes come from the community PR #1 by @dyguests.
 - The main canvas uses an opaque, desynchronized 2D context, which lets Chromium take the low-latency compositing path.
