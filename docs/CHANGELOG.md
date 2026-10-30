@@ -7,6 +7,8 @@
 - Touch input must travel 5 px before any ink appears, so resting a hand or a light tap leaves no dot; a stylus or mouse tap still makes a dot.
 - A finger landing on a resting palm takes the stroke over, so the palm never blocks drawing.
 - `pointercancel` now discards the unfinished stroke instead of committing it.
+- Latency: committing a stroke no longer repaints the whole board, so the cost of finishing a stroke stays flat as the drawing grows (about 0.1 ms instead of 4.4 ms at 1000 strokes in a Chromium benchmark). Undo and clear repaint once instead of twice, the shape preview clears only its previous bounds, and the eraser ring skips redundant style writes.
+- The main canvas uses an opaque, desynchronized 2D context, which lets Chromium take the low-latency compositing path.
 
 ## 0.1.0 — first public release
 

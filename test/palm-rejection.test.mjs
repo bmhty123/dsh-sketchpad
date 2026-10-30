@@ -169,6 +169,13 @@ const reset = () => {
 };
 const inkOps = () => rec.ops.filter((op) => ["stroke", "fill", "lineTo", "arc"].includes(op[0]));
 
+const undoButton = () => document.querySelector('[title^="撤销上一笔"]');
+const clearButton = () => document.querySelector(".dsh-sketchpad-clear");
+const clearBoard = () => {
+	const button = clearButton();
+	if (button !== null && button.disabled !== true) act(() => button.click());
+};
+
 const results = [];
 const check = (name, ok, detail) => results.push({ name, ok, detail: detail ?? "" });
 
@@ -212,6 +219,7 @@ dispatch("pointerup", { pointerId: 5, pointerType: "mouse", width: 1, height: 1,
 check("mouse tap still draws a dot", rec.ops.some((op) => op[0] === "arc" || op[0] === "fill"), JSON.stringify(rec.ops.map((o) => o[0])));
 
 /* 6. 手指画到一半手掌压上来：手指笔画不受影响，抬起后正常提交 */
+clearBoard();
 reset();
 dispatch("pointerdown", { pointerId: 6, pointerType: "touch", width: 12, height: 12, clientX: 100, clientY: 700 });
 dispatch("pointermove", { pointerId: 6, pointerType: "touch", width: 12, height: 12, clientX: 200, clientY: 760 });
@@ -220,8 +228,8 @@ dispatch("pointerdown", { pointerId: 7, pointerType: "touch", width: 70, height:
 dispatch("pointermove", { pointerId: 6, pointerType: "touch", width: 12, height: 12, clientX: 260, clientY: 800 });
 dispatch("pointerup", { pointerId: 6, pointerType: "touch", width: 12, height: 12, clientX: 260, clientY: 800 });
 dispatch("pointerup", { pointerId: 7, pointerType: "touch", width: 70, height: 60, clientX: 600, clientY: 900 });
-const committed = rec.ops.filter((op) => op[0] === "fillRect");
-check("palm landing mid-stroke keeps the finger stroke", inkBeforePalm > 0 && committed.length > 0, JSON.stringify(committed));
+/* 提交后不会再整块重绘，靠撤销按钮变为可用来确认这一笔真的进了画板。 */
+check("palm landing mid-stroke keeps the finger stroke", inkBeforePalm > 0 && undoButton()?.disabled === false, String(undoButton()?.disabled));
 
 /* 7. 手掌先压下来（没出墨），手指再落：手指接手，手掌那条不留痕 */
 reset();

@@ -101,7 +101,19 @@ status/message 仅用于错误提示
 - 抬笔不编码、不碰附件：PNG 编码和 `createDrafts`/`addAttachments` 只在关闭/插入时各做一次。
 - 自由笔画一次 `pointermove` 只 stroke 一条路径，合并 `getCoalescedEvents` 的同帧采样点；直线/箭头画在独立 overlay canvas 上。
 - 起笔时缓存画布矩形，`pointermove` 不再反复触发 `getBoundingClientRect`；橡皮圆只在橡皮模式下更新。
+- **提交不重绘整块画布**：抬笔时笔画已经在画布上，`commitStroke` 只置 `skipRepaintRef`，`[state.strokes]` 的 `useLayoutEffect` 跳过 `paintBoard`；只有撤销/清空才整块重绘（它们自己也已经画过一遍，置同样的标记避免重绘两次）。改之前每提交一笔都要重绘全部笔画，代价随笔画数线性增长。
+- 重绘用 `useLayoutEffect` 而不是 `useEffect`：首帧在浏览器绘制前就把白底铺上，避免 `alpha:false` 的画布闪一帧黑。
+- 主画布用 `getContext("2d", { alpha: false, desynchronized: true })`：不透明画布在 Chromium 上能走低延迟合成路径，笔尖到像素的延迟更小；Safari/Firefox 忽略这个选项，行为不变。导出仍然靠 `drawImage` 读回，实测可读（`test` 之外用 Chromium 量过）。
+- 直线/箭头预览只清上一帧的包围盒（`previewBoxRef`），不再每次 `pointermove` 清空 1600×1000 的覆盖层。
 - 编码只重绘包围盒区域，裁切后的图片像素和上传体积都更小。
+
+基准（Chromium headless，DPR 2，1000 条 120 点笔画，桌面 CPU；平板会更慢，但倍率关系不变）：
+
+| 场景 | 0.1.0 | 0.1.1 |
+| --- | --- | --- |
+| 每个 `pointermove`（含笔画采样与 stroke） | ~0.01 ms | ~0.01 ms |
+| 抬笔提交（含 React 渲染 + 重绘） | 0.2 ms → 4.4 ms（随笔画数涨） | ~0.1 ms（恒定） |
+| 撤销一次（整块重绘） | 8.1 ms | 3.3 ms |
 
 ## 本地开发
 
