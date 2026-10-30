@@ -97,8 +97,8 @@ status/message 仅用于错误提示
 - **触摸删除延后到抬起**：触摸按下删除工具时先不删（`gesture.pending`），因为这时还分不清是单指还是双指；抬起时如果第二根手指没按着才删。双指轻点因此不会先误删一条再撤销。
 - **删除光标**：一个跟随指针的 SVG 圆，直径 = `STROKE_WIDTH[weight] * widthScale * ERASER_SCALE`（默认 4 倍笔宽），也就是命中直径；用 `vector-effect="non-scaling-stroke"` 保证描边不随缩放变粗。
 - **中英文**：`STRINGS.zh` / `STRINGS.en` 两份文案，`t(key)` 按 `document.documentElement.lang` 选（`prefersChinese()`），面板打开时跟宿主语言一致；两条字符串里的 `insert` 就是工具条右侧的「完成 / Done」。
-- **全屏**：`prefs.fullscreen` 存在 localStorage，`BoardWindow` 把 `data-fullscreen` 挂在浮层容器上，CSS 让面板铺满视口；`fit()` 在全屏时同时按宽度和高度算缩放，普通窗口仍只按宽度算（否则面板被内容撑高后会缩不回去）。`F` 键和浮窗里的按钮共用同一个开关；侧栏画板上的按钮走另一条路：把 `prefs.fullscreen` 置 true 再 `requestFloatOpen("pane")`，浮层就渲染侧栏那块画板（surface `pane`），两边共享同一个 board store。
-- **「+」菜单入口**：`pluginCtx.inject(["commandUi"], …)` 里注册 `sketchpad` 命令，宿主没有这个服务时静默跳过；命令通过模块级的 `floatOpeners` 打开浮窗（集合挂在 `window` 上，避免热更新后模块分裂成两份），`requestFloatOpen(surface)` 决定浮层显示哪块画板。
+- **全屏**：`prefs.fullscreen` 存在 localStorage，`BoardWindow` 把 `data-fullscreen` 挂在浮层容器上，CSS 让面板铺满视口；`fit()` 在全屏时同时按宽度和高度算缩放，普通窗口仍只按宽度算（否则面板被内容撑高后会缩不回去）。`F` 键和浮窗里的按钮共用同一个开关；侧栏画板上的按钮走另一条路：把 `prefs.fullscreen` 置 true 再 `requestFloatOpen()`，等于从侧栏打开「+」菜单那块横向画板的全屏。
+- **「+」菜单入口**：`pluginCtx.inject(["commandUi"], …)` 里注册 `sketchpad` 命令，宿主没有这个服务时静默跳过；命令和侧栏按钮都通过模块级的 `floatOpeners` 打开浮窗（集合挂在 `window` 上，避免热更新后模块分裂成两份）。
 - **状态提示**：只在空白画板或出错时渲染；文本来自 `t("emptyHint")` 和错误信息。
 
 ## 性能取舍
