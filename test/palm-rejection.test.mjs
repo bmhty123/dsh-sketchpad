@@ -32,6 +32,7 @@ const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></
 
 const { window } = dom;
 const define = (name, value) => Object.defineProperty(globalThis, name, { value, configurable: true, writable: true });
+window.document.documentElement.lang = "zh-CN";
 define("window", window);
 define("document", window.document);
 define("navigator", window.navigator);
@@ -114,6 +115,10 @@ plugin.apply({
 	effect(fn) {
 		fn();
 	},
+	inject(_names, fn) {
+		/* 测试宿主没有 commandUi：和真实宿主一样静默跳过。 */
+		fn({ get: () => undefined, effect: () => ({}) });
+	},
 	slots: {
 		inject(_name, fn) {
 			fn();
@@ -170,7 +175,8 @@ const reset = () => {
 const inkOps = () => rec.ops.filter((op) => ["stroke", "fill", "lineTo", "arc"].includes(op[0]));
 
 const undoButton = () => document.querySelector('[title^="撤销"]');
-const clearButton = () => document.querySelector(".dsh-sketchpad-clear");
+const redoButton = () => document.querySelector('[title^="重做"]');
+const clearButton = () => document.querySelector('[title^="清空"]');
 const clearBoard = () => {
 	const button = clearButton();
 	if (button !== null && button.disabled !== true) act(() => button.click());
@@ -333,6 +339,18 @@ selectTool("水笔");
 drawPenStroke(200, 400, 500, 400);
 twoFingerTap(700, 1150);
 check("two-finger tap undoes a drawn stroke", clearButton()?.disabled === true);
+
+/* 14. 重做：撤销掉的一笔能放回来，落新笔后重做作废 */
+clearBoard();
+selectTool("水笔");
+drawPenStroke(200, 300, 500, 300);
+act(() => undoButton().click());
+const afterUndo = clearButton()?.disabled === true;
+act(() => redoButton().click());
+check("redo puts the stroke back", afterUndo && clearButton()?.disabled === false);
+act(() => undoButton().click());
+drawPenStroke(200, 380, 500, 380);
+check("a new stroke clears redo", redoButton()?.disabled === true);
 
 for (const result of results) {
 	console.log((result.ok ? "PASS " : "FAIL ") + result.name + (result.ok ? "" : " :: " + result.detail));
