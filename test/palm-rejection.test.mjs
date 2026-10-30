@@ -191,8 +191,15 @@ const drawPenStroke = (x1, y1, x2, y2) => {
 
 const results = [];
 const check = (name, ok, detail) => results.push({ name, ok, detail: detail ?? "" });
-/** 等过双击窗口，避免两段互不相干的点击被判成双击。 */
-const settle = () => new Promise((resolve) => setTimeout(resolve, 450));
+/** 双指轻点：两个触摸点同时按下、几乎同时抬起。 */
+const twoFingerTap = (x, y) => {
+	const first = nextPointerId++;
+	const second = nextPointerId++;
+	dispatch("pointerdown", { pointerId: first, pointerType: "touch", width: 12, height: 12, clientX: x, clientY: y });
+	dispatch("pointerdown", { pointerId: second, pointerType: "touch", width: 12, height: 12, clientX: x + 40, clientY: y });
+	dispatch("pointerup", { pointerId: first, pointerType: "touch", width: 12, height: 12, clientX: x, clientY: y });
+	dispatch("pointerup", { pointerId: second, pointerType: "touch", width: 12, height: 12, clientX: x + 40, clientY: y });
+};
 
 /* 1. 手掌（大面积）按下并移动：一个墨点都不能有 */
 reset();
@@ -280,17 +287,15 @@ reset();
 dispatch("pointerdown", { pointerId: 900, pointerType: "mouse", width: 1, height: 1, clientX: 300, clientY: 900 });
 dispatch("pointerup", { pointerId: 900, pointerType: "mouse", width: 1, height: 1, clientX: 300, clientY: 900 });
 check("delete tool removes the whole stroke", clearButton()?.disabled === true);
-await settle();
 
-/* 10. 双击撤销：删掉后再点一下同一处，把删除撤回来 */
+/* 10. 双指轻点撤销：删掉后两指一起点一下，把删除撤回来 */
 act(() => undoButton().click());
 check("undo restores the deleted stroke", clearButton()?.disabled === false);
 dispatch("pointerdown", { pointerId: 901, pointerType: "mouse", width: 1, height: 1, clientX: 300, clientY: 900 });
 dispatch("pointerup", { pointerId: 901, pointerType: "mouse", width: 1, height: 1, clientX: 300, clientY: 900 });
 const emptyAfterTap = clearButton()?.disabled === true;
-dispatch("pointerdown", { pointerId: 902, pointerType: "mouse", width: 1, height: 1, clientX: 300, clientY: 900 });
-dispatch("pointerup", { pointerId: 902, pointerType: "mouse", width: 1, height: 1, clientX: 300, clientY: 900 });
-check("second tap undoes the deletion", emptyAfterTap && clearButton()?.disabled === false);
+twoFingerTap(600, 1100);
+check("two-finger tap undoes the deletion", emptyAfterTap && clearButton()?.disabled === false);
 
 /* 11. 拖着一路删：一个手势删多笔，一次撤销全部放回 */
 clearBoard();
@@ -310,6 +315,24 @@ reset();
 act(() => undoButton().click());
 const restoredStrokes = rec.ops.filter((op) => op[0] === "stroke").length;
 check("one undo restores a multi-stroke delete", threeStrokes && allDeleted && restoredStrokes >= 3, `restored=${restoredStrokes}`);
+
+/* 12. 触摸轻点也能删：按下时先不删，抬起确认不是双指才删 */
+clearBoard();
+selectTool("水笔");
+drawPenStroke(200, 500, 500, 500);
+selectTool("删除笔画");
+dispatch("pointerdown", { pointerId: 920, pointerType: "touch", width: 12, height: 12, clientX: 350, clientY: 500 });
+dispatch("pointerup", { pointerId: 920, pointerType: "touch", width: 12, height: 12, clientX: 350, clientY: 500 });
+check("touch tap deletes a stroke", clearButton()?.disabled === true);
+twoFingerTap(650, 1150);
+check("two-finger tap restores the touch deletion", clearButton()?.disabled === false);
+
+/* 13. 笔工具下双指轻点同样撤销上一笔 */
+clearBoard();
+selectTool("水笔");
+drawPenStroke(200, 400, 500, 400);
+twoFingerTap(700, 1150);
+check("two-finger tap undoes a drawn stroke", clearButton()?.disabled === true);
 
 for (const result of results) {
 	console.log((result.ok ? "PASS " : "FAIL ") + result.name + (result.ok ? "" : " :: " + result.detail));

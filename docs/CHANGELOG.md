@@ -9,7 +9,7 @@
 - `pointercancel` now discards the unfinished stroke instead of committing it.
 - Latency: committing a stroke no longer repaints the whole board, so the cost of finishing a stroke stays flat as the drawing grows (about 0.1 ms instead of 4.4 ms at 1000 strokes in a Chromium benchmark). Undo and clear repaint once instead of twice, the shape preview clears only its previous bounds, and the eraser ring skips redundant style writes.
 - The eraser is now a stroke deleter: tap a stroke or drag across several to remove them whole, with a hit area that matches the round cursor. Deleting repaints only the removed stroke's bounding box, so dragging across a busy board stays cheap.
-- Undo is operation-based (last 40 actions) and covers deletions: `Ctrl/Cmd+Z`, the undo button, or a double-click / double-tap on the board restores what was just deleted.
+- Undo is operation-based (last 40 actions) and covers deletions: `Ctrl/Cmd+Z`, the undo button, or a two-finger tap on the board restores what was just deleted.
 - The main canvas uses an opaque, desynchronized 2D context, which lets Chromium take the low-latency compositing path.
 
 ## 0.1.0 — first public release
