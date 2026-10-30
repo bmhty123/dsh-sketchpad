@@ -85,6 +85,13 @@ status/message 仅用于错误提示
 - **Esc**：监听挂在 `window` 的捕获阶段（只在浮窗挂载期间存在），因此焦点在铅笔按钮或页面其他位置也能关闭；卸载时移除。
 - **自动聚焦**：浮窗打开后 `canvas.focus()`，`[`/`]`/`B`/`L`/`A`/`E` 和 `Ctrl+Z` 立即可用。
 - **单一触点**：`activePointerRef` 锁住起笔的 `pointerId`，其他 pointer 的 down/move/up 被忽略；只有在匹配的 pointerup/cancel 才结束当前笔画。
+- **触摸防误触**四道闸，按顺序生效：
+  1. 笔优先：`penActiveRef` / `penSeenAtRef` 记录笔按下与最近一次笔事件（含悬停），触摸在笔在场及离开后 1.5 s 内一律忽略；
+  2. 接触面积：`PointerEvent.width/height`（CSS 像素）长边 > 34 视为手掌，直接丢弃，也不计入触点集合，所以手掌压屏时仍可用手指画；
+  3. 多点：第二根非手掌触点按下时整笔作废（`abandonDraft` 用已提交笔画重绘画布），并封到所有触点抬起；
+  4. 拖动阈值：触摸起笔只攒点不落墨，位移超过 5 CSS 像素才一次性画出攒下的路径；没到阈值就抬笔不提交任何笔画，轻点和掌压都不留点。
+- **笔接管**：手掌先起了笔时，笔按下会作废那条触摸笔画并让笔接手，不会出现两条笔画打架。
+- **pointercancel**：系统打断（来电、手势切换）按作废处理，不把半截笔画当画完提交。
 - **橡皮光标**：一个跟随指针的 SVG 圆，直径 = `STROKE_WIDTH[weight] * widthScale * ERASER_SCALE`（默认 4 倍笔宽）；用 `vector-effect="non-scaling-stroke"` 保证描边不随缩放变粗。
 - **清空按钮**：不是图标，是 `.dsh-sketchpad-clear` 胶囊；`data-armed` 由 `hasInk` 控制，CSS 在 armed 时改红色描边和文字，底色保持相同的灰色。
 - **状态提示**：只在空白画板或出错时渲染；文本只有 `空白画板 · 按住鼠标拖动书写` 和错误信息两种。
@@ -117,6 +124,15 @@ dsh web                            # 或重启正在运行的 dsh web
 改 `lib/client.js` 后刷新页面即可；宿主半侧（`lib/index.js`）改动需要重启 host。不要同时把包放进 `dsh.profile.bundles`，否则会和 patch 行重复插入。
 
 调试：浏览器控制台里 `dsh-sketchpad` 开头的告警都来自本插件；画板状态不进 Redux，刷新页面即重置。
+
+## 测试
+
+```sh
+npm install
+npm test
+```
+
+`test/palm-rejection.test.mjs` 把真实 bundle 加载进 jsdom，用带 `pointerType` / `width` / `height` 的合成 PointerEvent 覆盖防误触：手掌大面积接触、轻点、低于拖动阈值、笔在场时触摸、手指拖动画到一半手掌压上来、双指误触、鼠标单击仍然落点。jsdom 没有布局和 canvas，测试里给画布固定 1000×1333 的矩形、用 ops 记录器替代 2D 上下文，所以断言看的是画布操作序列而不是像素。
 
 ## 卸载
 

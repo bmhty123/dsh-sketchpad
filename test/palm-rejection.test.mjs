@@ -1,0 +1,240 @@
+/**
+ * Palm-rejection tests for the real client bundle.
+ *
+ * jsdom has no layout and no 2D canvas, so the test stubs
+ * `HTMLCanvasElement.getContext` with an op recorder and gives the canvas a
+ * fixed 1000x1333 rect (the sidebar board size). Pointer events are dispatched
+ * with explicit `pointerType` / `width` / `height`, which is how browsers
+ * describe a palm-sized contact.
+ */
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { JSDOM } from "jsdom";
+import React from "react";
+import ReactDOM from "react-dom";
+import { act } from "react-dom/test-utils";
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const BUNDLE = path.resolve(here, "..", "lib", "client.js");
+
+/* 可推进的假时钟：笔离开后的 1.5 s 抑制窗口要能跨过。 */
+let clock = 1_000_000_000;
+Date.now = () => clock;
+const advance = (ms) => {
+	clock += ms;
+};
+
+const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', {
+	pretendToBeVisual: true,
+	url: "https://localhost/",
+});
+
+const { window } = dom;
+const define = (name, value) => Object.defineProperty(globalThis, name, { value, configurable: true, writable: true });
+define("window", window);
+define("document", window.document);
+define("navigator", window.navigator);
+define("HTMLElement", window.HTMLElement);
+define("Element", window.Element);
+define("Node", window.Node);
+define("Event", window.Event);
+define("MouseEvent", window.MouseEvent);
+define("IS_REACT_ACT_ENVIRONMENT", true);
+define("requestAnimationFrame", window.requestAnimationFrame.bind(window));
+define("cancelAnimationFrame", window.cancelAnimationFrame.bind(window));
+window.IS_REACT_ACT_ENVIRONMENT = true;
+
+/* ------------------------------------------------------------------ *
+ * 2D 上下文记录器
+ * ------------------------------------------------------------------ */
+
+const recorders = new WeakMap();
+
+function makeRecorder(canvas) {
+	const recorder = {
+		ops: [],
+		strokeStyle: "#000",
+		fillStyle: "#000",
+		lineWidth: 1,
+		lineCap: "butt",
+		lineJoin: "miter",
+	};
+	const draw = (name) => (...args) => recorder.ops.push([name, ...args]);
+	for (const name of [
+		"fillRect", "clearRect", "beginPath", "moveTo", "lineTo", "stroke", "arc", "fill",
+		"closePath", "save", "restore", "setTransform", "translate", "scale", "drawImage",
+		"quadraticCurveTo", "bezierCurveTo", "rect", "ellipse", "strokeRect", "setLineDash",
+	]) recorder[name] = draw(name);
+	recorder.canvas = canvas;
+	recorders.set(canvas, recorder);
+	return recorder;
+}
+
+window.HTMLCanvasElement.prototype.getContext = function getContext() {
+	const existing = recorders.get(this);
+	if (existing !== undefined) return existing;
+	return makeRecorder(this);
+};
+
+window.HTMLCanvasElement.prototype.getBoundingClientRect = function getBoundingClientRect() {
+	return { left: 0, top: 0, right: 1000, bottom: 1333, width: 1000, height: 1333, x: 0, y: 0 };
+};
+
+/* ------------------------------------------------------------------ *
+ * 加载真实 bundle
+ * ------------------------------------------------------------------ */
+
+const Dummy = (props) => React.createElement("span", null, props && props.children);
+const primitives = { IconEditOutlineRegular: Dummy, Tooltip: Dummy };
+
+let plugin = null;
+window.__ModuleLoader__ = {
+	load(spec) {
+		const loadModule = (id) => {
+			if (id === "react") return React;
+			if (id === "react-dom") return ReactDOM;
+			if (id === "@deepseek-ai/dsh-client-ui-primitives") return primitives;
+			throw new Error("unknown module " + id);
+		};
+		plugin = spec.factory(loadModule);
+	},
+};
+
+const source = fs.readFileSync(BUNDLE, "utf8");
+new Function("window", "document", "navigator", source)(window, window.document, window.navigator);
+
+/* ------------------------------------------------------------------ *
+ * 挂载侧栏画板
+ * ------------------------------------------------------------------ */
+
+const registered = new Map();
+const sidebarTabs = [];
+plugin.apply({
+	effect(fn) {
+		fn();
+	},
+	slots: {
+		inject(_name, fn) {
+			fn();
+		},
+		register(definition, component) {
+			registered.set(definition.name, component);
+			return {};
+		},
+	},
+	sidebarRightTabs: {
+		register(definition) {
+			sidebarTabs.push(definition);
+			return {};
+		},
+	},
+	get: () => undefined,
+});
+
+const Pane = registered.get("sidebar.right.pane.tab");
+if (typeof Pane !== "function") throw new Error("sidebar pane component was not registered");
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+await act(async () => {
+	root.render(React.createElement(Pane, { sessionId: "test-session" }));
+});
+
+const canvases = document.querySelectorAll("canvas");
+const canvas = canvases[0];
+if (canvas === undefined) throw new Error("canvas was not rendered");
+const overlayRec = canvases[1] === undefined ? null : recorders.get(canvases[1]);
+const rec = recorders.get(canvas);
+
+const dispatch = (type, init) => {
+	const event = new window.MouseEvent(type, {
+		bubbles: true,
+		cancelable: true,
+		clientX: init.clientX,
+		clientY: init.clientY,
+		button: 0,
+	});
+	for (const [key, value] of Object.entries(init)) {
+		if (key === "clientX" || key === "clientY") continue;
+		Object.defineProperty(event, key, { value });
+	}
+	act(() => {
+		canvas.dispatchEvent(event);
+	});
+};
+
+const reset = () => {
+	rec.ops.length = 0;
+	if (overlayRec) overlayRec.ops.length = 0;
+};
+const inkOps = () => rec.ops.filter((op) => ["stroke", "fill", "lineTo", "arc"].includes(op[0]));
+
+const results = [];
+const check = (name, ok, detail) => results.push({ name, ok, detail: detail ?? "" });
+
+/* 1. 手掌（大面积）按下并移动：一个墨点都不能有 */
+reset();
+dispatch("pointerdown", { pointerId: 1, pointerType: "touch", width: 60, height: 55, clientX: 100, clientY: 100 });
+dispatch("pointermove", { pointerId: 1, pointerType: "touch", width: 60, height: 55, clientX: 160, clientY: 140 });
+dispatch("pointerup", { pointerId: 1, pointerType: "touch", width: 60, height: 55, clientX: 160, clientY: 140 });
+check("palm down + move leaves no ink", inkOps().length === 0, JSON.stringify(inkOps().slice(0, 4)));
+
+/* 2. 手指轻点：不留点 */
+reset();
+dispatch("pointerdown", { pointerId: 2, pointerType: "touch", width: 12, height: 12, clientX: 200, clientY: 200 });
+dispatch("pointerup", { pointerId: 2, pointerType: "touch", width: 12, height: 12, clientX: 200, clientY: 200 });
+check("finger tap leaves no dot", inkOps().length === 0);
+
+/* 3. 手指拖动：先攒过 5 px 阈值，再一次性出墨 */
+reset();
+dispatch("pointerdown", { pointerId: 3, pointerType: "touch", width: 12, height: 12, clientX: 300, clientY: 300 });
+dispatch("pointermove", { pointerId: 3, pointerType: "touch", width: 12, height: 12, clientX: 302, clientY: 302 });
+check("below slop still no ink", inkOps().length === 0, JSON.stringify(inkOps()));
+dispatch("pointermove", { pointerId: 3, pointerType: "touch", width: 12, height: 12, clientX: 360, clientY: 360 });
+check("drag past slop inks", inkOps().length > 0, JSON.stringify(rec.ops.slice(0, 6)));
+dispatch("pointerup", { pointerId: 3, pointerType: "touch", width: 12, height: 12, clientX: 360, clientY: 360 });
+
+/* 4. 笔悬停后手掌压屏：不画 */
+reset();
+dispatch("pointermove", { pointerId: 9, pointerType: "pen", width: 1, height: 1, clientX: 500, clientY: 500 });
+dispatch("pointerdown", { pointerId: 4, pointerType: "touch", width: 12, height: 12, clientX: 300, clientY: 400 });
+dispatch("pointermove", { pointerId: 4, pointerType: "touch", width: 12, height: 12, clientX: 420, clientY: 480 });
+dispatch("pointerup", { pointerId: 4, pointerType: "touch", width: 12, height: 12, clientX: 420, clientY: 480 });
+check("pen presence suppresses touch", inkOps().length === 0);
+
+/* 5. 鼠标单击仍然落一个点（没有被防误触误伤） */
+reset();
+dispatch("pointerdown", { pointerId: 5, pointerType: "mouse", width: 1, height: 1, clientX: 600, clientY: 600 });
+dispatch("pointerup", { pointerId: 5, pointerType: "mouse", width: 1, height: 1, clientX: 600, clientY: 600 });
+check("mouse tap still draws a dot", rec.ops.some((op) => op[0] === "arc" || op[0] === "fill"), JSON.stringify(rec.ops.map((o) => o[0])));
+
+/* 6. 手指画到一半手掌压上来：手指笔画不受影响，抬起后正常提交 */
+advance(2000);
+reset();
+dispatch("pointerdown", { pointerId: 6, pointerType: "touch", width: 12, height: 12, clientX: 100, clientY: 700 });
+dispatch("pointermove", { pointerId: 6, pointerType: "touch", width: 12, height: 12, clientX: 200, clientY: 760 });
+const inkBeforePalm = inkOps().length;
+dispatch("pointerdown", { pointerId: 7, pointerType: "touch", width: 70, height: 60, clientX: 600, clientY: 900 });
+dispatch("pointermove", { pointerId: 6, pointerType: "touch", width: 12, height: 12, clientX: 260, clientY: 800 });
+dispatch("pointerup", { pointerId: 6, pointerType: "touch", width: 12, height: 12, clientX: 260, clientY: 800 });
+dispatch("pointerup", { pointerId: 7, pointerType: "touch", width: 70, height: 60, clientX: 600, clientY: 900 });
+const committed = rec.ops.filter((op) => op[0] === "fillRect");
+check("palm landing mid-stroke keeps the finger stroke", inkBeforePalm > 0 && committed.length > 0, JSON.stringify(committed));
+
+/* 7. 两根手指同时按：整笔作废，画布回到已提交内容 */
+reset();
+dispatch("pointerdown", { pointerId: 8, pointerType: "touch", width: 12, height: 12, clientX: 400, clientY: 1000 });
+dispatch("pointermove", { pointerId: 8, pointerType: "touch", width: 12, height: 12, clientX: 500, clientY: 1100 });
+dispatch("pointerdown", { pointerId: 10, pointerType: "touch", width: 14, height: 14, clientX: 700, clientY: 1200 });
+dispatch("pointerup", { pointerId: 8, pointerType: "touch", width: 12, height: 12, clientX: 500, clientY: 1100 });
+dispatch("pointerup", { pointerId: 10, pointerType: "touch", width: 14, height: 14, clientX: 700, clientY: 1200 });
+const afterAbort = rec.ops.map((op) => op[0]);
+/* 作废只会有一次「按已提交笔画重绘」的 fillRect；真提交了，状态变化会再重绘一次。 */
+check("second finger cancels the stroke", afterAbort.filter((name) => name === "fillRect").length === 1, JSON.stringify(afterAbort));
+
+for (const result of results) {
+	console.log((result.ok ? "PASS " : "FAIL ") + result.name + (result.ok ? "" : " :: " + result.detail));
+}
+const failed = results.filter((result) => !result.ok);
+console.log(failed.length === 0 ? `ALL PASS (${results.length})` : `${failed.length} FAILED`);
+process.exitCode = failed.length === 0 ? 0 : 1;
